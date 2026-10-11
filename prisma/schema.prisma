@@ -1,15 +1,16 @@
 // Gokul Gruh Udhyog — Admin Order Management
-// Prisma schema. Default datasource is SQLite (zero external setup).
-// To move to Postgres later: set provider = "postgresql" and point
-// DATABASE_URL at your Postgres connection string, then re-run migrations.
+// Prisma schema. Datasource is PostgreSQL (hosted on Neon's free tier).
+// DATABASE_URL = pooled connection (used by the app at runtime).
+// DIRECT_URL   = direct connection (used by `prisma migrate`).
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum OrderStatus {
