@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Light theme — soft, eye-friendly (from master prompt) */
+    --background: 213 43% 97%;        /* #F4F7FB */
+    --foreground: 219 34% 22%;        /* #24324B deep navy */
+
+    --card: 0 0% 100%;                /* #FFFFFF */
+    --card-foreground: 219 34% 22%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 219 34% 22%;
+
+    --primary: 222 57% 53%;           /* #426BCE brand blue */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 221 100% 96%;        /* #EAF1FF soft blue */
+    --secondary-foreground: 219 34% 22%;
+
+    --muted: 213 43% 95%;
+    --muted-foreground: 216 17% 47%;  /* #66758B */
+
+    --accent: 221 100% 96%;
+    --accent-foreground: 222 57% 40%;
+
+    --destructive: 0 63% 51%;         /* accessible muted red */
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 155 42% 42%;           /* muted green */
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 80% 50%;            /* soft amber */
+    --warning-foreground: 30 40% 18%;
+
+    --border: 217 35% 91%;            /* #E1E7F0 */
+    --input: 217 35% 91%;
+    --ring: 222 57% 53%;
+
+    --radius: 0.6rem;
+  }
+
+  .dark {
+    /* Low-glare dark theme */
+    --background: 219 30% 11%;
+    --foreground: 213 30% 92%;
+
+    --card: 219 28% 15%;
+    --card-foreground: 213 30% 92%;
+
+    --popover: 219 28% 15%;
+    --popover-foreground: 213 30% 92%;
+
+    --primary: 222 65% 65%;
+    --primary-foreground: 219 40% 12%;
+
+    --secondary: 219 25% 20%;
+    --secondary-foreground: 213 30% 92%;
+
+    --muted: 219 24% 18%;
+    --muted-foreground: 215 18% 65%;
+
+    --accent: 219 25% 22%;
+    --accent-foreground: 213 30% 92%;
+
+    --destructive: 0 55% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 155 38% 48%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 72% 55%;
+    --warning-foreground: 30 40% 12%;
+
+    --border: 219 22% 24%;
+    --input: 219 22% 24%;
+    --ring: 222 65% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv11", "ss01";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* Comfortable, readable defaults for long working sessions */
+  h1, h2, h3, h4 {
+    @apply tracking-tight;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Respect reduced-motion preferences globally */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------------------------------------------------------------
+   PRINT: 4 x 6 inch order slip only. Everything else is hidden.
+   The print surface is marked with [data-print-surface].
+----------------------------------------------------------------*/
+@media print {
+  @page {
+    size: 4in 6in portrait;
+    margin: 0;
+  }
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  [data-print-surface],
+  [data-print-surface] * {
+    visibility: visible !important;
+  }
+  [data-print-surface] {
+    position: absolute;
+    inset: 0;
+    margin: 0 !important;
+    width: 4in !important;
+    height: 6in !important;
+    box-shadow: none !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

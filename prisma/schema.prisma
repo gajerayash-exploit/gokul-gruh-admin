@@ -1,0 +1,100 @@
+// Gokul Gruh Udhyog — Admin Order Management
+// Prisma schema. Default datasource is SQLite (zero external setup).
+// To move to Postgres later: set provider = "postgresql" and point
+// DATABASE_URL at your Postgres connection string, then re-run migrations.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum OrderStatus {
+  DRAFT
+  COMPLETE
+}
+
+model Admin {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdOrders Order[] @relation("CreatedBy")
+  updatedOrders Order[] @relation("UpdatedBy")
+  auditEvents   AuditEvent[]
+
+  @@map("admins")
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  // Business date the order belongs to (stored at local-day granularity, Asia/Kolkata).
+  businessDate DateTime
+  fullName     String      @default("")
+  phoneNumber  String      @default("")
+  address      String      @default("")
+  orderType    String      @default("")
+  docketNumber String      @default("")
+  // Pricing: quantity x unit price (rupees). lineTotal is derived, not stored.
+  quantity     Int         @default(0)
+  unitPrice    Float       @default(0)
+  status       OrderStatus @default(DRAFT)
+
+  // Optimistic-concurrency control. Incremented on every server-side write.
+  version   Int       @default(1)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  createdById String?
+  createdBy   Admin?  @relation("CreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedById String?
+  updatedBy   Admin?  @relation("UpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([businessDate])
+  @@index([deletedAt])
+  @@index([docketNumber])
+  @@index([fullName])
+  @@index([phoneNumber])
+  @@index([updatedAt])
+  @@map("orders")
+}
+
+model BusinessSettings {
+  // Single-row table; always id = 1.
+  id             Int      @id @default(1)
+  businessName   String   @default("Gokul Gruh Udhyog")
+  contactPerson  String   @default("Kripal Dobariya")
+  phoneNumber    String   @default("+91 9638412929")
+  address        String   @default("")
+  mapsQuery      String   @default("") // free-text or lat,lng used for Google Maps
+  logoDataUrl    String   @default("") // optional uploaded logo (data URL); empty = use built-in SVG
+  orderTypes     String   @default("") // JSON array of frequently used order types
+  defaultDateToday Boolean @default(true)
+  updatedAt      DateTime @updatedAt
+
+  @@map("business_settings")
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  action     String   // e.g. ORDER_CREATED, ORDER_UPDATED, ORDER_DELETED, ORDER_RESTORED, SETTINGS_CHANGED, LOGIN
+  entityType String   // "order" | "settings" | "auth"
+  entityId   String?
+  summary    String   @default("")
+  metadata   String   @default("") // JSON blob of changed fields (no secrets)
+  createdAt  DateTime @default(now())
+
+  actorId String?
+  actor   Admin?  @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_events")
+}
