@@ -67,10 +67,34 @@ export const api = {
     return request<OrderListResult>(`/api/orders?${sp.toString()}`);
   },
 
-  createDraft: (businessDate?: string) =>
+  createDraft: (businessDate?: string, initialItemName?: string) =>
     request<{ order: OrderDTO }>("/api/orders", {
       method: "POST",
-      body: JSON.stringify({ businessDate }),
+      body: JSON.stringify({ businessDate, initialItemName }),
+    }),
+
+  addOrderItem: (
+    orderId: string,
+    item: { itemName: string; quantity: number; unitPrice: number }
+  ) =>
+    request<{ order: OrderDTO }>(`/api/orders/${orderId}/items`, {
+      method: "POST",
+      body: JSON.stringify(item),
+    }),
+
+  updateOrderItem: (
+    orderId: string,
+    itemId: string,
+    patch: { itemName?: string; quantity?: number; unitPrice?: number }
+  ) =>
+    request<{ order: OrderDTO }>(`/api/orders/${orderId}/items/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  deleteOrderItem: (orderId: string, itemId: string) =>
+    request<{ order: OrderDTO }>(`/api/orders/${orderId}/items/${itemId}`, {
+      method: "DELETE",
     }),
 
   updateOrder: (

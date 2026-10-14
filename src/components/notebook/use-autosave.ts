@@ -29,14 +29,21 @@ interface Fields {
 }
 
 function pick(o: OrderDTO): Fields {
+  const itemsQty = (o.items ?? []).reduce((sum, it) => sum + it.quantity, 0);
+  const orderType =
+    o.orderType ||
+    (o.items && o.items.length > 0
+      ? o.items.map((it) => (it.quantity > 1 ? `${it.itemName} (${it.quantity})` : it.itemName)).join(", ")
+      : "");
+
   return {
     businessDate: o.businessDate,
     fullName: o.fullName,
     phoneNumber: o.phoneNumber,
     address: o.address,
-    orderType: o.orderType,
+    orderType,
     docketNumber: o.docketNumber,
-    quantity: o.quantity ? String(o.quantity) : "",
+    quantity: o.quantity ? String(o.quantity) : itemsQty ? String(itemsQty) : "",
     unitPrice: o.unitPrice ? String(o.unitPrice) : "",
   };
 }
@@ -184,7 +191,11 @@ export function useAutosave(
     !fields.phoneNumber || normalizeIndianPhone(fields.phoneNumber) !== null;
   const quantityNum = toAmount(fields.quantity);
   const unitPriceNum = toAmount(fields.unitPrice);
-  const amount = round2(quantityNum * unitPriceNum);
+  const itemsAmt = (initial.items ?? []).reduce((sum, it) => sum + it.amount, 0);
+  const amount =
+    initial.items && initial.items.length > 0
+      ? round2(itemsAmt)
+      : round2(quantityNum * unitPriceNum);
 
   return {
     fields,

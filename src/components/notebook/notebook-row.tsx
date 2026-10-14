@@ -7,6 +7,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   CalendarDays,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Layers,
+  ClipboardPaste,
+  Camera,
 } from "lucide-react";
 import type { OrderDTO, BusinessSettingsDTO } from "@/types";
 import { cn, formatINR } from "@/lib/utils";
@@ -17,6 +23,10 @@ import { formatDisplayDate } from "@/lib/dates";
 import { Button } from "@/components/ui/button";
 import { IconTooltip } from "@/components/ui/tooltip";
 import { toast } from "@/components/ui/use-toast";
+import { OrderItemsEditor } from "@/components/orders/order-items-editor";
+import { DayBadge } from "@/components/ui/day-badge";
+import { MobileQuickPaste } from "@/components/orders/mobile-quick-paste";
+import { DocketScannerDialog } from "@/components/orders/docket-scanner-dialog";
 import {
   Popover,
   PopoverTrigger,
@@ -45,6 +55,8 @@ export interface NotebookRowProps {
   order: OrderDTO;
   settings: BusinessSettingsDTO;
   index: number;
+  isActive?: boolean;
+  onSelect?: () => void;
   focusField?: EditableField | null;
   onFocused?: () => void;
   onSaved?: (o: OrderDTO) => void;
@@ -57,6 +69,8 @@ function NotebookRowInner({
   order,
   settings,
   index,
+  isActive = false,
+  onSelect,
   focusField,
   onFocused,
   onSaved,
@@ -78,7 +92,36 @@ function NotebookRowInner({
 
   const [confirmDelete, setConfirmDelete] = React.useState(false);
   const [duplicates, setDuplicates] = React.useState<OrderDTO[]>([]);
+  const [expanded, setExpanded] = React.useState(false);
+  const [mobilePasteOpen, setMobilePasteOpen] = React.useState(false);
+  const [scannerOpen, setScannerOpen] = React.useState(false);
   const dupTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pasteToField = React.useCallback(async (field: EditableField) => {
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.readText) {
+        const text = await navigator.clipboard.readText();
+        if (text) {
+          setField(field, text.trim());
+          toast({
+            variant: "success",
+            title: "Pasted",
+            description: `Updated field with copied text.`,
+          });
+        }
+      }
+    } catch {
+      toast({
+        variant: "default",
+        title: "Please paste manually",
+        description: "Tap into the input and tap Paste.",
+      });
+    }
+  }, [setField]);
+
+  const hasItems = order.items && order.items.length > 0;
+  const itemsTotalQty = hasItems ? order.items.reduce((s, it) => s + it.quantity, 0) : 0;
+  const itemsTotalAmt = hasItems ? order.items.reduce((s, it) => s + it.amount, 0) : 0;
 
   // Focus a specific field when requested (new-row flow / keyboard nav).
   React.useEffect(() => {
@@ -159,7 +202,7 @@ function NotebookRowInner({
   const complete = save.isComplete;
 
   const inputCls =
-    "w-full bg-transparent px-2 py-1.5 text-sm outline-none focus:bg-brand-soft/60 dark:focus:bg-primary/10 rounded placeholder:text-muted-foreground/60";
+    "w-full bg-transparent px-2 py-1.5 text-base sm:text-sm outline-none focus:bg-brand-soft/60 dark:focus:bg-primary/10 rounded placeholder:text-muted-foreground/60";
 
   // Shared field renderers (used by both desktop grid and mobile card).
   const nameInput = (
@@ -201,22 +244,63 @@ function NotebookRowInner({
       aria-label="Address"
     />
   );
-  const typeInput = (
-    <>
+  const typeInput = hasItems ? (
+    <div className="flex w-full items-center justify-between gap-1 px-1.5 py-1">
+      <div className="flex flex-wrap items-center gap-1 overflow-hidden">
+        {order.items.slice(0, 3).map((it) => (
+          <span
+            key={it.id}
+            className="inline-flex items-center rounded bg-brand-soft/80 px-1.5 py-0.5 text-[11px] font-semibold text-primary"
+          >
+            {it.itemName} {it.quantity > 1 ? `×${it.quantity}` : ""}
+          </span>
+        ))}
+        {order.items.length > 3 && (
+          <span className="text-[10px] font-semibold text-muted-foreground">
+            +{order.items.length - 3}
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded((prev) => !prev);
+        }}
+        className="shrink-0 rounded p-1 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+        title={expanded ? "Hide items" : "Manage items"}
+      >
+        {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+      </button>
+    </div>
+  ) : (
+    <div className="flex items-center w-full">
       <input
         data-cell={`${order.id}:orderType`}
-        className={inputCls}
+        className={cn(inputCls, "flex-1")}
         value={fields.orderType}
-        placeholder="Order type"
+        placeholder="Order type or add items…"
         list="ggu-order-types"
         onChange={(e) => setField("orderType", e.target.value)}
         onKeyDown={(e) => handleKeyDown(e, "orderType")}
         aria-label="Order type"
       />
-    </>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setExpanded(true);
+        }}
+        className="mr-1 text-muted-foreground hover:text-primary"
+        title="Add sub-entries"
+      >
+        <Plus className="h-3.5 w-3.5" />
+      </button>
+    </div>
   );
+
   const docketInput = (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1 w-full">
       <input
         data-cell={`${order.id}:docketNumber`}
         className={cn(inputCls, hasDuplicate && "text-warning-foreground")}
@@ -226,6 +310,18 @@ function NotebookRowInner({
         onKeyDown={(e) => handleKeyDown(e, "docketNumber")}
         aria-label="Docket number"
       />
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setScannerOpen(true);
+        }}
+        className="shrink-0 p-1 rounded text-muted-foreground hover:text-primary hover:bg-brand-soft/80 transition-colors"
+        title="Scan docket barcode with camera"
+        aria-label="Scan docket barcode"
+      >
+        <Camera className="h-3.5 w-3.5" />
+      </button>
       {hasDuplicate && (
         <Popover>
           <PopoverTrigger asChild>
@@ -257,7 +353,19 @@ function NotebookRowInner({
     </div>
   );
 
-  const qtyInput = (
+  const qtyInput = hasItems ? (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setExpanded(true);
+      }}
+      className={cn(inputCls, "text-right tabular-nums font-semibold hover:text-primary")}
+      title="Total quantity across all items (click to view)"
+    >
+      {itemsTotalQty}
+    </button>
+  ) : (
     <input
       data-cell={`${order.id}:quantity`}
       className={cn(inputCls, "text-right tabular-nums")}
@@ -269,7 +377,15 @@ function NotebookRowInner({
       aria-label="Quantity"
     />
   );
-  const rateInput = (
+
+  const rateInput = hasItems ? (
+    <span
+      className={cn(inputCls, "text-right tabular-nums text-xs text-muted-foreground block truncate")}
+      title="Multiple item rates"
+    >
+      Multi
+    </span>
+  ) : (
     <input
       data-cell={`${order.id}:unitPrice`}
       className={cn(inputCls, "text-right tabular-nums")}
@@ -283,9 +399,11 @@ function NotebookRowInner({
       aria-label="Unit price in rupees"
     />
   );
+
+  const amountToDisplay = hasItems ? itemsTotalAmt : amount;
   const amountCell = (
     <span className="w-full px-2 py-1.5 text-right text-sm font-semibold tabular-nums text-brand-navy dark:text-foreground">
-      {amount > 0 ? formatINR(amount) : <span className="text-muted-foreground/60">—</span>}
+      {amountToDisplay > 0 ? formatINR(amountToDisplay) : <span className="text-muted-foreground/60">—</span>}
     </span>
   );
 
@@ -360,15 +478,17 @@ function NotebookRowInner({
     <>
       {/* Desktop register row */}
       <div
+        onClick={onSelect}
         className={cn(
-          "hidden lg:grid grid-cols-[92px_84px_1.3fr_120px_1.4fr_0.9fr_50px_86px_96px_108px_100px] items-stretch border-b border-border transition-colors",
+          "hidden lg:grid grid-cols-[88px_74px_1.2fr_112px_1.2fr_1.8fr_48px_78px_92px_100px_96px] items-stretch border-b border-border transition-colors cursor-pointer",
           index % 2 === 1 && "bg-muted/30",
+          isActive && "bg-brand-soft/40 dark:bg-primary/10 border-l-4 border-l-primary",
           "hover:bg-brand-soft/30 dark:hover:bg-primary/5"
         )}
       >
         <div className="flex items-center border-r border-border/70 px-1">{dateCell}</div>
-        <div className="flex items-center border-r border-border/70 px-2 text-xs text-muted-foreground whitespace-nowrap">
-          {weekday}
+        <div className="flex items-center justify-center border-r border-border/70 px-1.5">
+          <DayBadge day={weekday} />
         </div>
         <div className="flex items-center border-r border-border/70">{nameInput}</div>
         <div className="flex items-center border-r border-border/70">{phoneInput}</div>
@@ -384,14 +504,66 @@ function NotebookRowInner({
         </div>
       </div>
 
+      {/* Expandable sub-entries panel (desktop) */}
+      {expanded && (
+        <div className="hidden lg:block border-b border-border/80 bg-muted/20 px-6 py-3 pl-16 transition-all animate-fade-in">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Layers className="h-4 w-4 text-primary" />
+              <span className="text-xs font-bold text-brand-navy dark:text-foreground">
+                Customer Sub-Entries for {fields.fullName || "Unnamed customer"}
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(false);
+              }}
+              className="h-6 text-xs text-muted-foreground"
+            >
+              Hide items
+            </Button>
+          </div>
+          <OrderItemsEditor
+            order={order}
+            onOrderUpdated={(updated) => {
+              onSaved?.(updated);
+            }}
+          />
+        </div>
+      )}
+
       {/* Mobile card */}
-      <div className="lg:hidden rounded-xl border border-border bg-card p-3 shadow-sm">
+      <div
+        onClick={onSelect}
+        className={cn(
+          "lg:hidden rounded-xl border border-border bg-card p-3 shadow-sm",
+          isActive && "ring-2 ring-primary/40 border-primary"
+        )}
+      >
         <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <CalendarDays className="h-3.5 w-3.5" />
-            {formatDisplayDate(fields.businessDate)} · {weekday || "—"}
+            <CalendarDays className="h-3.5 w-3.5 text-primary" />
+            <span className="font-semibold text-foreground">{formatDisplayDate(fields.businessDate)}</span>
+            <DayBadge day={weekday} />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMobilePasteOpen(true);
+              }}
+              className="h-7 gap-1 px-2 text-xs font-semibold border-primary/40 bg-brand-soft/30 text-primary hover:bg-brand-soft"
+              title="Paste WhatsApp / customer details directly into this card"
+            >
+              <ClipboardPaste className="h-3.5 w-3.5" />
+              <span>Paste Details</span>
+            </Button>
             {complete ? (
               <Badge variant="success" className="gap-1">
                 <CheckCircle2 className="h-3 w-3" /> Complete
@@ -402,20 +574,66 @@ function NotebookRowInner({
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2">
-          <LabeledField label="Full Name">{nameInput}</LabeledField>
+          <LabeledField
+            label="Full Name"
+            onPaste={() => pasteToField("fullName")}
+          >
+            {nameInput}
+          </LabeledField>
           <div className="grid grid-cols-2 gap-2">
-            <LabeledField label="Phone">{phoneInput}</LabeledField>
-            <LabeledField label="Docket">{docketInput}</LabeledField>
+            <LabeledField
+              label="Phone"
+              onPaste={() => pasteToField("phoneNumber")}
+            >
+              {phoneInput}
+            </LabeledField>
+            <LabeledField
+              label="Docket"
+              onScan={() => setScannerOpen(true)}
+            >
+              {docketInput}
+            </LabeledField>
           </div>
-          <LabeledField label="Address">{addressInput}</LabeledField>
+          <LabeledField
+            label="Address"
+            onPaste={() => pasteToField("address")}
+          >
+            {addressInput}
+          </LabeledField>
           <LabeledField label="Order Type">{typeInput}</LabeledField>
           <div className="grid grid-cols-3 gap-2">
             <LabeledField label="Qty">{qtyInput}</LabeledField>
             <LabeledField label="Rate (₹)">{rateInput}</LabeledField>
             <LabeledField label="Amount">{amountCell}</LabeledField>
           </div>
-          <LabeledField label="Date">{dateCell}</LabeledField>
+          <div className="grid grid-cols-2 gap-2">
+            <LabeledField label="Date">{dateCell}</LabeledField>
+            <div className="flex flex-col justify-center rounded-lg border border-border bg-background/60 px-2 py-1">
+              <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Day
+              </span>
+              <div className="pt-0.5">
+                <DayBadge day={weekday} />
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Sub-entries editor on mobile */}
+        <div className="mt-3 border-t border-border pt-2">
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+              Customer Items ({order.items?.length || 0})
+            </span>
+          </div>
+          <OrderItemsEditor
+            order={order}
+            onOrderUpdated={(updated) => {
+              onSaved?.(updated);
+            }}
+          />
+        </div>
+
         <div className="mt-3 flex items-center justify-between border-t border-border pt-2">
           <SaveStatus state={saveState} lastSavedAt={lastSavedAt} onRetry={retry} />
           {actions}
@@ -423,6 +641,25 @@ function NotebookRowInner({
       </div>
 
       {deleteDialog}
+
+      <MobileQuickPaste
+        open={mobilePasteOpen}
+        onOpenChange={setMobilePasteOpen}
+        selectedDateISO={fields.businessDate}
+        targetOrder={order}
+        onOrderCreatedOrUpdated={(updated) => {
+          onSaved?.(updated);
+        }}
+      />
+
+      <DocketScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        customerName={fields.fullName}
+        onScanned={(scanned) => {
+          setField("docketNumber", scanned);
+        }}
+      />
     </>
   );
 }
@@ -430,15 +667,53 @@ function NotebookRowInner({
 function LabeledField({
   label,
   children,
+  onPaste,
+  onScan,
 }: {
   label: string;
   children: React.ReactNode;
+  onPaste?: () => void;
+  onScan?: () => void;
 }) {
   return (
-    <label className="block rounded-lg border border-border bg-background/60 px-2 py-1">
-      <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
+    <label className="block rounded-lg border border-border bg-background/60 px-2 py-1 transition-colors focus-within:border-primary/50">
+      <div className="flex items-center justify-between">
+        <span className="block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <div className="flex items-center gap-1">
+          {onScan && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onScan();
+              }}
+              className="text-[10px] text-primary hover:text-primary/80 font-bold inline-flex items-center gap-0.5 px-1 py-0.2 rounded hover:bg-primary/10 transition-colors"
+              title="Scan barcode with camera"
+            >
+              <Camera className="h-2.5 w-2.5" />
+              <span>Scan</span>
+            </button>
+          )}
+          {onPaste && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onPaste();
+              }}
+              className="text-[10px] text-primary hover:text-primary/80 font-medium inline-flex items-center gap-0.5 px-1 py-0.2 rounded hover:bg-primary/10 transition-colors"
+              title={`Paste into ${label}`}
+            >
+              <ClipboardPaste className="h-2.5 w-2.5" />
+              <span>Paste</span>
+            </button>
+          )}
+        </div>
+      </div>
       {children}
     </label>
   );

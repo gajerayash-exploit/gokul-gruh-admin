@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { IconTooltip } from "@/components/ui/tooltip";
 import { PreviewPanel } from "@/components/orders/preview-panel";
 import { OrderEditDialog } from "@/components/orders/order-edit-dialog";
+import { DayBadge } from "@/components/ui/day-badge";
 
 type SortBy = "businessDate" | "fullName" | "docketNumber" | "updatedAt";
 
@@ -110,7 +111,7 @@ export function HistoryView() {
   }
 
   return (
-    <div className="mx-auto max-w-[1400px]">
+    <div className="mx-auto w-full max-w-[1700px]">
       <div className="mb-4 flex items-center gap-2 text-primary">
         <HistoryIcon className="h-5 w-5" />
         <h1 className="text-xl font-semibold text-brand-navy dark:text-foreground">Order History</h1>
@@ -195,14 +196,29 @@ export function HistoryView() {
               <li key={o.id} className="md:grid md:grid-cols-[108px_76px_1.3fr_128px_0.9fr_104px_104px_132px] md:items-center">
                 {/* Desktop cells */}
                 <div className="hidden md:block px-3 py-2.5 text-sm">{formatDisplayDate(o.businessDate)}</div>
-                <div className="hidden md:block px-3 py-2.5 text-xs text-muted-foreground">{o.weekday}</div>
+                <div className="hidden md:flex items-center justify-center px-2 py-2.5">
+                  <DayBadge day={o.weekday} />
+                </div>
                 <div className="hidden md:block px-3 py-2.5 text-sm font-medium text-brand-navy dark:text-foreground">
                   {o.fullName || <span className="text-muted-foreground">—</span>}
                 </div>
                 <div className="hidden md:block px-3 py-2.5 text-sm">
                   {o.phoneNumber ? phoneDisp(o.phoneNumber) : "—"}
                 </div>
-                <div className="hidden md:block px-3 py-2.5 text-sm">{o.orderType || "—"}</div>
+                <div className="hidden md:flex flex-wrap items-center gap-1 px-3 py-2.5 text-sm">
+                  {o.items && o.items.length > 0 ? (
+                    o.items.map((it) => (
+                      <span
+                        key={it.id}
+                        className="inline-flex items-center rounded-md bg-brand-soft/80 px-1.5 py-0.5 text-xs font-semibold text-primary"
+                      >
+                        {it.itemName} {it.quantity > 1 ? `×${it.quantity}` : ""}
+                      </span>
+                    ))
+                  ) : (
+                    o.orderType || "—"
+                  )}
+                </div>
                 <div className="hidden md:block px-3 py-2.5 text-right text-sm font-semibold tabular-nums">
                   {o.amount > 0 ? formatINR(o.amount) : "—"}
                 </div>
@@ -216,8 +232,10 @@ export function HistoryView() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="font-medium text-brand-navy dark:text-foreground">{o.fullName || "—"}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {formatDisplayDate(o.businessDate)} · {o.weekday} · Docket {o.docketNumber || "—"}
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{formatDisplayDate(o.businessDate)}</span>
+                        <DayBadge day={o.weekday} />
+                        <span>· Docket {o.docketNumber || "—"}</span>
                       </div>
                       <div className="mt-0.5 text-xs text-muted-foreground">
                         {o.phoneNumber ? phoneDisp(o.phoneNumber) : "—"} · {o.orderType || "—"}

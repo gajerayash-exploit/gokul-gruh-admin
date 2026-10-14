@@ -23,6 +23,28 @@ export function todayISODate(): string {
   return formatInTimeZone(new Date(), BUSINESS_TZ, "yyyy-MM-dd");
 }
 
+/** Add or subtract calendar days to/from a YYYY-MM-DD ISO string. */
+export function addDaysISO(iso: string, days: number): string {
+  if (!iso) return todayISODate();
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + days));
+  const ny = dt.getUTCFullYear();
+  const nm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const nd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${ny}-${nm}-${nd}`;
+}
+
+/** "YYYY-MM-DD" string for tomorrow. */
+export function tomorrowISODate(): string {
+  return addDaysISO(todayISODate(), 1);
+}
+
+/** "YYYY-MM-DD" string for yesterday. */
+export function yesterdayISODate(): string {
+  return addDaysISO(todayISODate(), -1);
+}
+
+
 /**
  * Convert a business-day "YYYY-MM-DD" into a stable Date to persist.
  * We store it as midday UTC of that calendar day to avoid any off-by-one

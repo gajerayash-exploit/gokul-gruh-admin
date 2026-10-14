@@ -26,6 +26,8 @@ const LINE = "#cbd5e1";
 const HAIR = "#e2e8f0";
 const BRAND = "#426BCE";
 
+
+
 function phoneDisplay(raw: string): string {
   const n = normalizeIndianPhone(raw);
   return n ? formatPhoneForDisplay(n) : raw;
@@ -138,7 +140,10 @@ export const OrderSlip = React.forwardRef<HTMLDivElement, Props>(
         >
           <MetaCell label="Order Date" value={formatDisplayDate(order.businessDate)} />
           <div style={{ width: 1, background: LINE }} />
-          <MetaCell label="Day" value={order.weekday || "—"} />
+          <MetaCell
+            label="Day"
+            value={order.weekday || "—"}
+          />
         </div>
 
         {/* ---------- Bill to ---------- */}
@@ -171,21 +176,48 @@ export const OrderSlip = React.forwardRef<HTMLDivElement, Props>(
             <ItemHead label="Rate" style={{ width: 72, textAlign: "right" }} />
             <ItemHead label="Amount" style={{ width: 80, textAlign: "right" }} />
           </div>
-          {/* Single line item */}
-          <div style={{ display: "flex", alignItems: "baseline", padding: "9px 10px" }}>
-            <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: INK, lineHeight: 1.3, wordBreak: "break-word" }}>
-              {order.orderType || "—"}
+          {/* Items rows: either multi-item sub-entries or legacy single entry */}
+          {order.items && order.items.length > 0 ? (
+            order.items.map((it, idx) => (
+              <div
+                key={it.id || idx}
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  padding: "6px 10px",
+                  borderBottom: idx < order.items.length - 1 ? `1px solid ${HAIR}` : "none",
+                }}
+              >
+                <div style={{ flex: 1, fontSize: 11.5, fontWeight: 600, color: INK, lineHeight: 1.25, wordBreak: "break-word" }}>
+                  {it.itemName || "—"}
+                </div>
+                <div style={{ width: 34, textAlign: "right", fontSize: 11.5, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                  {it.quantity || "—"}
+                </div>
+                <div style={{ width: 72, textAlign: "right", fontSize: 11.5, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                  {it.unitPrice ? formatINR(it.unitPrice) : "—"}
+                </div>
+                <div style={{ width: 80, textAlign: "right", fontSize: 11.5, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                  {it.amount ? formatINR(it.amount) : "—"}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div style={{ display: "flex", alignItems: "baseline", padding: "9px 10px" }}>
+              <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: INK, lineHeight: 1.3, wordBreak: "break-word" }}>
+                {order.orderType || "—"}
+              </div>
+              <div style={{ width: 34, textAlign: "right", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                {order.quantity || "—"}
+              </div>
+              <div style={{ width: 72, textAlign: "right", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+                {order.unitPrice ? formatINR(order.unitPrice) : "—"}
+              </div>
+              <div style={{ width: 80, textAlign: "right", fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+                {order.amount ? formatINR(order.amount) : "—"}
+              </div>
             </div>
-            <div style={{ width: 34, textAlign: "right", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-              {order.quantity || "—"}
-            </div>
-            <div style={{ width: 72, textAlign: "right", fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
-              {order.unitPrice ? formatINR(order.unitPrice) : "—"}
-            </div>
-            <div style={{ width: 80, textAlign: "right", fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-              {order.amount ? formatINR(order.amount) : "—"}
-            </div>
-          </div>
+          )}
           {/* Payable total */}
           <div
             style={{

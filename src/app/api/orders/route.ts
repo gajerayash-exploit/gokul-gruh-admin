@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     dateISO: sp.get("date") || undefined,
     fromISO: sp.get("from") || undefined,
     toISO: sp.get("to") || undefined,
-    search: sp.get("q") || undefined,
+    search: sp.get("q") || sp.get("search") || undefined,
     status: (sp.get("status") as "DRAFT" | "COMPLETE") || undefined,
     sortBy: (sp.get("sortBy") as ListFilters["sortBy"]) || undefined,
     sortDir: (sp.get("sortDir") as ListFilters["sortDir"]) || undefined,
@@ -30,6 +30,7 @@ const createSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .optional(),
+  initialItemName: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -44,8 +45,8 @@ export async function POST(req: NextRequest) {
   }
   const parsed = createSchema.safeParse(body ?? {});
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid date." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid request data." }, { status: 400 });
   }
-  const order = await createDraft(admin.id, parsed.data.businessDate);
+  const order = await createDraft(admin.id, parsed.data.businessDate, parsed.data.initialItemName);
   return NextResponse.json({ order }, { status: 201 });
 }

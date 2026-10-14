@@ -30,14 +30,16 @@ TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 export function IconTooltip({
   label,
   children,
+  side,
 }: {
   label: string;
   children: React.ReactNode;
+  side?: "top" | "right" | "bottom" | "left";
 }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent side={side}>{label}</TooltipContent>
     </Tooltip>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Loader2, CheckCircle2, Trash2, Save } from "lucide-react";
+import { Loader2, CheckCircle2, Trash2, Save, Camera } from "lucide-react";
+import { DocketScannerDialog } from "@/components/orders/docket-scanner-dialog";
 import type { OrderDTO, BusinessSettingsDTO } from "@/types";
 import {
   Dialog,
@@ -21,6 +22,8 @@ import { api, ApiError } from "@/lib/api/client";
 import { toast } from "@/components/ui/use-toast";
 import { weekdayFromISO } from "@/lib/dates";
 import { cn, formatINR } from "@/lib/utils";
+import { OrderItemsEditor } from "@/components/orders/order-items-editor";
+import { DayBadge } from "@/components/ui/day-badge";
 
 /**
  * Edit dialog reusing the same autosave semantics as the notebook, plus an
@@ -78,6 +81,7 @@ function EditForm({
   const { fields, setField, saveState, lastSavedAt, retry, missing, isComplete, phoneValid, amount } = save;
   const [finalizing, setFinalizing] = React.useState(false);
   const [confirmDelete, setConfirmDelete] = React.useState(false);
+  const [scannerOpen, setScannerOpen] = React.useState(false);
 
   async function finalize() {
     setFinalizing(true);
@@ -129,7 +133,9 @@ function EditForm({
           </div>
           <div className="space-y-1">
             <Label>Day</Label>
-            <Input value={weekdayFromISO(fields.businessDate)} readOnly className="bg-muted/40" />
+            <div className="flex h-9 items-center rounded-md border border-input bg-muted/20 px-2.5">
+              <DayBadge day={weekdayFromISO(fields.businessDate)} variant="header" />
+            </div>
           </div>
         </div>
         <div className="space-y-1">
@@ -150,7 +156,18 @@ function EditForm({
             {!phoneValid && <p className="text-xs text-destructive">Invalid Indian mobile number.</p>}
           </div>
           <div className="space-y-1">
-            <Label htmlFor="e-docket">Docket Number</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="e-docket">Docket Number</Label>
+              <button
+                type="button"
+                onClick={() => setScannerOpen(true)}
+                className="text-xs text-primary hover:text-primary/80 font-bold inline-flex items-center gap-1"
+                title="Scan barcode with camera"
+              >
+                <Camera className="h-3 w-3" />
+                <span>Scan</span>
+              </button>
+            </div>
             <Input id="e-docket" value={fields.docketNumber} onChange={(e) => setField("docketNumber", e.target.value)} />
           </div>
         </div>
@@ -159,7 +176,18 @@ function EditForm({
           <Textarea id="e-address" value={fields.address} onChange={(e) => setField("address", e.target.value)} />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="e-type">Order Type</Label>
+          <Label>Order Items / Sub-Entries</Label>
+          <div className="rounded-lg border border-border bg-muted/20 p-2.5">
+            <OrderItemsEditor
+              order={order}
+              onOrderUpdated={(updated) => {
+                onChanged?.(updated);
+              }}
+            />
+          </div>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="e-type">Summary / Custom Note</Label>
           <Input id="e-type" list="ggu-order-types-edit" value={fields.orderType} onChange={(e) => setField("orderType", e.target.value)} />
           <datalist id="ggu-order-types-edit">
             {settings.orderTypes.map((t) => (
@@ -235,6 +263,15 @@ function EditForm({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DocketScannerDialog
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        customerName={fields.fullName}
+        onScanned={(scanned) => {
+          setField("docketNumber", scanned);
+        }}
+      />
     </>
   );
 }

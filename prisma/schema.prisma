@@ -46,6 +46,7 @@ model Order {
   quantity     Int         @default(0)
   unitPrice    Float       @default(0)
   status       OrderStatus @default(DRAFT)
+  items        OrderItem[]
 
   // Optimistic-concurrency control. Incremented on every server-side write.
   version   Int       @default(1)
@@ -65,6 +66,20 @@ model Order {
   @@index([phoneNumber])
   @@index([updatedAt])
   @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemName  String   @default("")
+  quantity  Int      @default(1)
+  unitPrice Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@map("order_items")
 }
 
 model BusinessSettings {

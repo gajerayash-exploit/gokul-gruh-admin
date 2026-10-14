@@ -1,5 +1,5 @@
 import "server-only";
-import type { Order, Prisma } from "@prisma/client";
+import type { Order, OrderItem, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { logAudit } from "@/lib/audit/service";
 import {
@@ -20,9 +20,34 @@ export class ConcurrencyError extends Error {
   }
 }
 
-export function toDTO(o: Order): OrderDTO {
+export function toDTO(o: Order & { items?: OrderItem[] }): OrderDTO {
   const iso = storageToISODate(o.businessDate);
-  const amount = Math.round((o.quantity * o.unitPrice + Number.EPSILON) * 100) / 100;
+  const items = (o.items ?? []).map((it) => {
+    const itAmt = Math.round((it.quantity * it.unitPrice + Number.EPSILON) * 100) / 100;
+    return {
+      id: it.id,
+      orderId: it.orderId,
+      itemName: it.itemName,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice,
+      amount: itAmt,
+    };
+  });
+
+  let totalQty = o.quantity;
+  let totalAmt = Math.round((o.quantity * o.unitPrice + Number.EPSILON) * 100) / 100;
+
+  if (items.length > 0) {
+    totalQty = items.reduce((sum, it) => sum + it.quantity, 0);
+    totalAmt = Math.round((items.reduce((sum, it) => sum + it.amount, 0) + Number.EPSILON) * 100) / 100;
+  }
+
+  const orderType =
+    o.orderType ||
+    (items.length > 0
+      ? items.map((it) => (it.quantity > 1 ? `${it.itemName} (${it.quantity})` : it.itemName)).join(", ")
+      : "");
+
   return {
     id: o.id,
     businessDate: iso,
@@ -30,11 +55,12 @@ export function toDTO(o: Order): OrderDTO {
     fullName: o.fullName,
     phoneNumber: o.phoneNumber,
     address: o.address,
-    orderType: o.orderType,
+    orderType,
     docketNumber: o.docketNumber,
-    quantity: o.quantity,
+    quantity: totalQty,
     unitPrice: o.unitPrice,
-    amount,
+    amount: totalAmt,
+    items,
     status: o.status,
     version: o.version,
     createdAt: o.createdAt.toISOString(),
@@ -44,13 +70,17 @@ export function toDTO(o: Order): OrderDTO {
 }
 
 export async function getOrder(id: string): Promise<OrderDTO | null> {
-  const o = await prisma.order.findFirst({ where: { id, deletedAt: null } });
+  const o = await prisma.order.findFirst({
+    where: { id, deletedAt: null },
+    include: { items: { orderBy: { createdAt: "asc" } } },
+  });
   return o ? toDTO(o) : null;
 }
 
 export async function createDraft(
   adminId: string,
-  businessDate?: string
+  businessDate?: string,
+  initialItemName?: string
 ): Promise<OrderDTO> {
   const iso = businessDate ?? todayISODate();
   const o = await prisma.order.create({
@@ -59,7 +89,19 @@ export async function createDraft(
       status: "DRAFT",
       createdById: adminId,
       updatedById: adminId,
+      ...(initialItemName
+        ? {
+            items: {
+              create: {
+                itemName: initialItemName,
+                quantity: 1,
+                unitPrice: 0,
+              },
+            },
+          }
+        : {}),
     },
+    include: { items: { orderBy: { createdAt: "asc" } } },
   });
   await logAudit({
     action: "ORDER_CREATED",
@@ -168,7 +210,10 @@ export async function updateOrder(
     await prisma.order.update({ where: { id }, data });
   }
 
-  const updated = await prisma.order.findUnique({ where: { id } });
+  const updated = await prisma.order.findUnique({
+    where: { id },
+    include: { items: { orderBy: { createdAt: "asc" } } },
+  });
   if (patch.finalize) {
     await logAudit({
       action: "ORDER_FINALIZED",
@@ -329,6 +374,7 @@ export async function listOrders(filters: ListFilters): Promise<OrderListResult>
       orderBy,
       skip: (page - 1) * pageSize,
       take: pageSize,
+      include: { items: { orderBy: { createdAt: "asc" } } },
     }),
     prisma.order.count({ where }),
   ]);
@@ -351,6 +397,7 @@ export async function findByDocket(
     },
     orderBy: { createdAt: "desc" },
     take: 10,
+    include: { items: { orderBy: { createdAt: "asc" } } },
   });
   return rows.map(toDTO);
 }
@@ -409,3 +456,95 @@ export async function bulkCreate(
   });
   return { created: count };
 }
+
+export async function addOrderItem(
+  orderId: string,
+  item: { itemName: string; quantity: number; unitPrice: number },
+  adminId: string
+): Promise<OrderDTO> {
+  const existing = await prisma.order.findFirst({ where: { id: orderId, deletedAt: null } });
+  if (!existing) throw new Error("Order not found");
+
+  await prisma.orderItem.create({
+    data: {
+      orderId,
+      itemName: item.itemName.trim(),
+      quantity: Math.max(1, item.quantity || 1),
+      unitPrice: Math.max(0, item.unitPrice || 0),
+    },
+  });
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { updatedById: adminId, version: { increment: 1 } },
+  });
+
+  await logAudit({
+    action: "ORDER_ITEM_ADDED",
+    entityType: "order",
+    entityId: orderId,
+    summary: `Added item: ${item.itemName} (qty: ${item.quantity})`,
+    actorId: adminId,
+  });
+
+  return (await getOrder(orderId))!;
+}
+
+export async function updateOrderItem(
+  orderId: string,
+  itemId: string,
+  item: { itemName?: string; quantity?: number; unitPrice?: number },
+  adminId: string
+): Promise<OrderDTO> {
+  const existing = await prisma.order.findFirst({ where: { id: orderId, deletedAt: null } });
+  if (!existing) throw new Error("Order not found");
+
+  const existingItem = await prisma.orderItem.findFirst({ where: { id: itemId, orderId } });
+  if (!existingItem) throw new Error("Item not found");
+
+  await prisma.orderItem.update({
+    where: { id: itemId },
+    data: {
+      ...(item.itemName !== undefined && { itemName: item.itemName.trim() }),
+      ...(item.quantity !== undefined && { quantity: Math.max(1, item.quantity) }),
+      ...(item.unitPrice !== undefined && { unitPrice: Math.max(0, item.unitPrice) }),
+    },
+  });
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { updatedById: adminId, version: { increment: 1 } },
+  });
+
+  return (await getOrder(orderId))!;
+}
+
+export async function deleteOrderItem(
+  orderId: string,
+  itemId: string,
+  adminId: string
+): Promise<OrderDTO> {
+  const existing = await prisma.order.findFirst({ where: { id: orderId, deletedAt: null } });
+  if (!existing) throw new Error("Order not found");
+
+  const existingItem = await prisma.orderItem.findFirst({ where: { id: itemId, orderId } });
+  if (!existingItem) throw new Error("Item not found");
+
+  await prisma.orderItem.delete({ where: { id: itemId } });
+
+  await prisma.order.update({
+    where: { id: orderId },
+    data: { updatedById: adminId, version: { increment: 1 } },
+  });
+
+  await logAudit({
+    action: "ORDER_ITEM_DELETED",
+    entityType: "order",
+    entityId: orderId,
+    summary: `Deleted item: ${existingItem.itemName}`,
+    actorId: adminId,
+  });
+
+  return (await getOrder(orderId))!;
+}
+

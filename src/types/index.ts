@@ -1,5 +1,14 @@
 import type { OrderStatus } from "@prisma/client";
 
+export interface OrderItemDTO {
+  id: string;
+  orderId?: string;
+  itemName: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
 /** Order as sent to the client (dates as ISO strings, weekday derived). */
 export interface OrderDTO {
   id: string;
@@ -10,10 +19,11 @@ export interface OrderDTO {
   address: string;
   orderType: string;
   docketNumber: string;
-  /** Pricing. unitPrice is in rupees; amount = quantity * unitPrice. */
+  /** Pricing. unitPrice is in rupees; amount = total of all items or quantity * unitPrice. */
   quantity: number;
   unitPrice: number;
   amount: number;
+  items: OrderItemDTO[];
   status: OrderStatus;
   version: number;
   createdAt: string;
