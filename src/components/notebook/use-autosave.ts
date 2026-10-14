@@ -36,6 +36,11 @@ function pick(o: OrderDTO): Fields {
       ? o.items.map((it) => (it.quantity > 1 ? `${it.itemName} (${it.quantity})` : it.itemName)).join(", ")
       : "");
 
+  const effectiveUnitPrice =
+    o.items && o.items.length === 1
+      ? o.items[0].unitPrice || o.unitPrice
+      : o.unitPrice;
+
   return {
     businessDate: o.businessDate,
     fullName: o.fullName,
@@ -44,7 +49,7 @@ function pick(o: OrderDTO): Fields {
     orderType,
     docketNumber: o.docketNumber,
     quantity: o.quantity ? String(o.quantity) : itemsQty ? String(itemsQty) : "",
-    unitPrice: o.unitPrice ? String(o.unitPrice) : "",
+    unitPrice: effectiveUnitPrice ? String(effectiveUnitPrice) : "",
   };
 }
 

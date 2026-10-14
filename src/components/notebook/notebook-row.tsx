@@ -250,9 +250,20 @@ function NotebookRowInner({
         {order.items.slice(0, 3).map((it) => (
           <span
             key={it.id}
-            className="inline-flex items-center rounded bg-brand-soft/80 px-1.5 py-0.5 text-[11px] font-semibold text-primary"
+            className={cn(
+              "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold transition-colors",
+              it.unitPrice
+                ? "bg-brand-soft/80 text-primary"
+                : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-700"
+            )}
           >
-            {it.itemName} {it.quantity > 1 ? `×${it.quantity}` : ""}
+            <span>{it.itemName}</span>
+            {it.quantity > 1 && <span className="opacity-75">×{it.quantity}</span>}
+            {it.unitPrice ? (
+              <span className="opacity-70 text-[10px]">₹{it.unitPrice}</span>
+            ) : (
+              <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">₹?</span>
+            )}
           </span>
         ))}
         {order.items.length > 3 && (
@@ -353,14 +364,17 @@ function NotebookRowInner({
     </div>
   );
 
-  const qtyInput = hasItems ? (
+  const hasMultipleItems = hasItems && order.items.length > 1;
+  const hasMissingPrice = hasItems && order.items.some((it) => !it.unitPrice);
+
+  const qtyInput = hasMultipleItems ? (
     <button
       type="button"
       onClick={(e) => {
         e.stopPropagation();
         setExpanded(true);
       }}
-      className={cn(inputCls, "text-right tabular-nums font-semibold hover:text-primary")}
+      className={cn(inputCls, "text-right tabular-nums font-semibold hover:text-primary cursor-pointer")}
       title="Total quantity across all items (click to view)"
     >
       {itemsTotalQty}
@@ -378,25 +392,43 @@ function NotebookRowInner({
     />
   );
 
-  const rateInput = hasItems ? (
-    <span
-      className={cn(inputCls, "text-right tabular-nums text-xs text-muted-foreground block truncate")}
-      title="Multiple item rates"
+  const rateInput = hasMultipleItems ? (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setExpanded((prev) => !prev);
+      }}
+      className={cn(
+        inputCls,
+        "text-right tabular-nums text-xs block truncate transition-colors text-right cursor-pointer",
+        hasMissingPrice
+          ? "font-bold text-amber-600 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 rounded"
+          : "text-muted-foreground hover:text-primary hover:bg-brand-soft/50 rounded"
+      )}
+      title="Multiple items — click to view and edit individual rates"
     >
-      Multi
-    </span>
+      {hasMissingPrice ? "Rate ⚠" : "Multi ₹"}
+    </button>
   ) : (
     <input
       data-cell={`${order.id}:unitPrice`}
-      className={cn(inputCls, "text-right tabular-nums")}
+      className={cn(
+        inputCls,
+        "text-right tabular-nums transition-colors",
+        (!fields.unitPrice || parseFloat(fields.unitPrice) === 0)
+          ? "border border-amber-400 bg-amber-50/80 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 placeholder:text-amber-500 font-bold"
+          : "focus:border-primary font-semibold"
+      )}
       value={fields.unitPrice}
-      placeholder="0.00"
+      placeholder="₹ Rate"
       inputMode="decimal"
       onChange={(e) =>
         setField("unitPrice", e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))
       }
       onKeyDown={(e) => handleKeyDown(e, "unitPrice")}
       aria-label="Unit price in rupees"
+      title="Enter unit price in rupees (e.g. 60 or 80)"
     />
   );
 

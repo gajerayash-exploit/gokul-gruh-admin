@@ -269,33 +269,35 @@ export function Notebook() {
         onOpenRevenueModal={() => setRevenueModalOpen(true)}
       />
 
-      {/* Toolbar with Take / Add New Order button at very start */}
-      <div className="mb-3 mt-3 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+      {/* Clean & Unified Command Toolbar */}
+      <div className="mb-3 mt-3 flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
+        {/* Left Side: Order Creation & Date Navigation */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Prominent Button at very start */}
+          {/* Main Action: New Order */}
           <Button
             size="default"
-            className="gap-2 font-semibold shadow-xs bg-primary hover:bg-primary/90 text-primary-foreground"
+            className="gap-1.5 font-bold shadow-xs bg-primary hover:bg-primary/90 text-primary-foreground h-9 px-3.5"
             onClick={() => addEntry()}
             disabled={adding}
           >
             {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4 stroke-[2.5]" />}
-            Take / Add New Order
+            <span>+ New Order</span>
           </Button>
 
-          {/* Quick Paste Button for Mobile & Desktop */}
+          {/* Quick Smart Paste */}
           <Button
             variant="outline"
             size="default"
             onClick={() => setQuickPasteOpen(true)}
-            className="gap-1.5 font-semibold border-primary/40 text-primary bg-brand-soft/30 hover:bg-brand-soft"
+            className="gap-1.5 font-semibold border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 h-9 px-3"
+            title="Paste customer WhatsApp message with automatic details extraction"
           >
             <ClipboardPaste className="h-4 w-4" />
-            <span>Paste Customer Details</span>
+            <span>Paste Details</span>
           </Button>
 
-          {/* Date Picker with Prev / Next Steppers */}
-          <div className="flex items-center gap-0.5 rounded-md border border-input bg-card px-1 py-0.5 shadow-2xs">
+          {/* Date Picker Group */}
+          <div className="flex items-center gap-0.5 rounded-lg border border-border bg-card px-1 py-0.5 shadow-2xs h-9">
             <button
               type="button"
               onClick={() => setSelectedDate(addDaysISO(selectedDate, -1))}
@@ -304,12 +306,12 @@ export function Notebook() {
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <CalendarDays className="h-4 w-4 text-muted-foreground ml-0.5" />
+            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground ml-1" />
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value || todayISODate())}
-              className="bg-transparent px-1 py-1 text-sm outline-none font-medium text-foreground cursor-pointer"
+              className="bg-transparent px-1.5 py-0.5 text-xs sm:text-sm font-semibold outline-none text-foreground cursor-pointer"
               aria-label="Select register date"
             />
             <button
@@ -322,75 +324,86 @@ export function Notebook() {
             </button>
           </div>
 
-          {/* Quick Date Shortcut Buttons: Jump to Today / Tomorrow */}
-          {!isToday && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedDate(todayISODate())}
-              className="text-xs text-muted-foreground hover:text-foreground"
-            >
-              Jump to today
-            </Button>
-          )}
-          {!isTomorrow && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSelectedDate(tomorrowISODate())}
-              className="text-xs font-semibold border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20"
-            >
-              Tomorrow ❯
-            </Button>
-          )}
+          {/* Quick Day Chips */}
+          <div className="flex items-center gap-1">
+            {!isToday && (
+              <button
+                type="button"
+                onClick={() => setSelectedDate(todayISODate())}
+                className="rounded-md border border-border bg-card px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              >
+                Today
+              </button>
+            )}
+            {!isTomorrow && (
+              <button
+                type="button"
+                onClick={() => setSelectedDate(tomorrowISODate())}
+                className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20 transition-colors"
+              >
+                Tomorrow ❯
+              </button>
+            )}
+          </div>
         </div>
 
+        {/* Right Side: Search & Register Utilities */}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          {/* Quick Search */}
+          <div className="relative flex-1 sm:flex-initial">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               ref={searchRef}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search (Ctrl/⌘+K)…"
-              className="w-52 pl-8"
+              placeholder="Search records (Ctrl+K)…"
+              className="h-9 w-full sm:w-56 pl-8 text-xs placeholder:text-muted-foreground/70"
               aria-label="Search records"
             />
           </div>
-          <IconTooltip label="Export day orders to Excel (.xlsx)">
+
+          {/* Action Utilities */}
+          <div className="flex items-center gap-1.5">
             <Button
               variant="outline"
               size="sm"
-              onClick={handleExportExcel}
-              disabled={exportingExcel || orders.length === 0}
-              className="gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20"
+              onClick={() => setRevenueModalOpen(true)}
+              className="h-9 gap-1.5 font-semibold text-foreground border-border hover:bg-secondary px-2.5 text-xs"
+              title="View complete day revenue and item collections"
             >
-              {exportingExcel ? (
-                <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
-              ) : (
-                <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
-              )}
-              <span>Export Excel</span>
+              <IndianRupee className="h-3.5 w-3.5 text-emerald-600" />
+              <span>Revenue</span>
             </Button>
-          </IconTooltip>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setRevenueModalOpen(true)}
-            className="gap-1.5 font-semibold text-foreground border-border hover:bg-secondary"
-            title="View complete day revenue and item collections"
-          >
-            <IndianRupee className="h-4 w-4 text-emerald-600" />
-            <span>Revenue</span>
-          </Button>
+            <IconTooltip label="Export day orders to Excel (.xlsx)">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportExcel}
+                disabled={exportingExcel || orders.length === 0}
+                className="h-9 gap-1.5 font-semibold text-emerald-700 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 text-xs"
+              >
+                {exportingExcel ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-600" />
+                ) : (
+                  <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                )}
+                <span>Excel</span>
+              </Button>
+            </IconTooltip>
 
-          <IconTooltip label="Paste multiple records">
-            <Button variant="outline" size="sm" onClick={() => setBulkOpen(true)}>
-              <ClipboardPaste className="h-4 w-4" />
-              <span className="hidden sm:inline">Bulk Paste</span>
-            </Button>
-          </IconTooltip>
+            <IconTooltip label="Paste multiple records at once">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBulkOpen(true)}
+                className="h-9 gap-1.5 px-2.5 text-xs font-medium"
+              >
+                <ClipboardPaste className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Bulk</span>
+              </Button>
+            </IconTooltip>
+          </div>
         </div>
       </div>
 

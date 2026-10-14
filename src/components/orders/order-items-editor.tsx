@@ -106,55 +106,13 @@ export function OrderItemsEditor({
       {items.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           {items.map((it) => (
-            <div
+            <EditableItemRow
               key={it.id}
-              className="group inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-muted/40 px-2 py-1 text-xs transition-colors hover:border-primary/40 hover:bg-muted/80"
-            >
-              <span className="font-semibold text-brand-navy dark:text-foreground">
-                {it.itemName}
-              </span>
-              <div className="flex items-center gap-1 text-muted-foreground">
-                <input
-                  type="number"
-                  min={1}
-                  className="w-10 rounded border border-border/50 bg-background px-1 py-0.5 text-center text-xs font-semibold tabular-nums outline-none focus:border-primary"
-                  value={it.quantity}
-                  title="Quantity"
-                  onChange={(e) => {
-                    const q = parseInt(e.target.value, 10);
-                    if (!isNaN(q) && q > 0) {
-                      handleUpdateItem(it.id, { quantity: q });
-                    }
-                  }}
-                />
-                <span>×</span>
-                <input
-                  type="number"
-                  step="any"
-                  min={0}
-                  className="w-14 rounded border border-border/50 bg-background px-1 py-0.5 text-right text-xs font-semibold tabular-nums outline-none focus:border-primary"
-                  value={it.unitPrice || ""}
-                  placeholder="₹0"
-                  title="Unit Rate (₹)"
-                  onChange={(e) => {
-                    const p = parseFloat(e.target.value);
-                    handleUpdateItem(it.id, { unitPrice: isNaN(p) ? 0 : p });
-                  }}
-                />
-                <span className="font-bold text-foreground">
-                  = {formatINR(it.amount)}
-                </span>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleDeleteItem(it.id)}
-                disabled={updatingItemId === it.id}
-                className="ml-0.5 text-muted-foreground hover:text-destructive opacity-70 group-hover:opacity-100 transition-opacity"
-                title="Remove item"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </div>
+              item={it}
+              onUpdate={(patch) => handleUpdateItem(it.id, patch)}
+              onDelete={() => handleDeleteItem(it.id)}
+              disabled={updatingItemId === it.id}
+            />
           ))}
         </div>
       )}
@@ -262,6 +220,121 @@ export function OrderItemsEditor({
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+function EditableItemRow({
+  item,
+  onUpdate,
+  onDelete,
+  disabled,
+}: {
+  item: OrderItemDTO;
+  onUpdate: (patch: { quantity?: number; unitPrice?: number }) => void;
+  onDelete: () => void;
+  disabled: boolean;
+}) {
+  const [qty, setQty] = React.useState(String(item.quantity));
+  const [price, setPrice] = React.useState(item.unitPrice ? String(item.unitPrice) : "");
+  const debounceTimer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    setQty(String(item.quantity));
+  }, [item.quantity]);
+
+  React.useEffect(() => {
+    setPrice(item.unitPrice ? String(item.unitPrice) : "");
+  }, [item.unitPrice]);
+
+  const commitPrice = (val: string) => {
+    const p = parseFloat(val);
+    const valid = !isNaN(p) && p >= 0 ? p : 0;
+    if (valid !== item.unitPrice) {
+      onUpdate({ unitPrice: valid });
+    }
+  };
+
+  const commitQty = (val: string) => {
+    const q = parseInt(val, 10);
+    const valid = !isNaN(q) && q > 0 ? q : 1;
+    if (valid !== item.quantity) {
+      onUpdate({ quantity: valid });
+    }
+  };
+
+  const handlePriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1");
+    setPrice(next);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      commitPrice(next);
+    }, 600);
+  };
+
+  const handleQtyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const next = e.target.value.replace(/[^\d]/g, "");
+    setQty(next);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => {
+      commitQty(next);
+    }, 600);
+  };
+
+  return (
+    <div className="group inline-flex items-center gap-1.5 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1.5 text-xs transition-colors hover:border-primary/40 hover:bg-muted/80">
+      <span className="font-bold text-brand-navy dark:text-foreground">
+        {item.itemName}
+      </span>
+      <div className="flex items-center gap-1 text-muted-foreground">
+        <input
+          type="number"
+          min={1}
+          className="w-10 rounded border border-border/60 bg-background px-1 py-0.5 text-center text-xs font-semibold tabular-nums outline-none focus:border-primary"
+          value={qty}
+          title="Quantity"
+          onChange={handleQtyChange}
+          onBlur={() => commitQty(qty)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitQty(qty);
+          }}
+        />
+        <span>×</span>
+        <div className="flex items-center">
+          <span className="text-[10px] text-muted-foreground mr-0.5 font-medium">₹</span>
+          <input
+            type="number"
+            step="any"
+            min={0}
+            className={cn(
+              "w-16 rounded border bg-background px-1.5 py-0.5 text-right text-xs font-bold tabular-nums outline-none transition-colors",
+              !item.unitPrice
+                ? "border-amber-400 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 placeholder:text-amber-500 focus:border-primary"
+                : "border-border/60 focus:border-primary"
+            )}
+            value={price}
+            placeholder="Rate"
+            title="Unit Rate (₹) — Enter manual price per quality"
+            onChange={handlePriceChange}
+            onBlur={() => commitPrice(price)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitPrice(price);
+            }}
+          />
+        </div>
+        <span className="font-extrabold text-foreground ml-1">
+          = {formatINR(item.amount)}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={disabled}
+        className="ml-1 text-muted-foreground hover:text-destructive opacity-70 group-hover:opacity-100 transition-opacity p-0.5"
+        title="Remove item"
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
     </div>
   );
 }

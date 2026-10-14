@@ -58,7 +58,7 @@ export function toDTO(o: Order & { items?: OrderItem[] }): OrderDTO {
     orderType,
     docketNumber: o.docketNumber,
     quantity: totalQty,
-    unitPrice: o.unitPrice,
+    unitPrice: items.length === 1 ? items[0].unitPrice : o.unitPrice,
     amount: totalAmt,
     items,
     status: o.status,
@@ -208,6 +208,20 @@ export async function updateOrder(
     }
   } else {
     await prisma.order.update({ where: { id }, data });
+  }
+
+  // If order has a single item, keep its item unitPrice and quantity synchronized
+  if (patch.unitPrice !== undefined || patch.quantity !== undefined) {
+    const orderItems = await prisma.orderItem.findMany({ where: { orderId: id } });
+    if (orderItems.length === 1) {
+      await prisma.orderItem.update({
+        where: { id: orderItems[0].id },
+        data: {
+          ...(patch.unitPrice !== undefined && { unitPrice: Math.max(0, patch.unitPrice) }),
+          ...(patch.quantity !== undefined && { quantity: Math.max(1, patch.quantity) }),
+        },
+      });
+    }
   }
 
   const updated = await prisma.order.findUnique({

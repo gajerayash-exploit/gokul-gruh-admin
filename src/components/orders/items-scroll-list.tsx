@@ -14,12 +14,12 @@ export interface ItemDefinition {
 }
 
 export const GOKUL_ITEMS: ItemDefinition[] = [
-  { name: "Kothimba", gujarati: "કોથમીર", color: "from-emerald-500/15 to-emerald-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/30", defaultPrice: 40 },
-  { name: "Guvar", gujarati: "ગુવાર", color: "from-green-500/15 to-green-500/5 text-green-700 dark:text-green-400 border-green-500/30", defaultPrice: 60 },
-  { name: "Bhinda", gujarati: "ભીંડા", color: "from-teal-500/15 to-teal-500/5 text-teal-700 dark:text-teal-400 border-teal-500/30", defaultPrice: 70 },
-  { name: "Marcha", gujarati: "મરચાં", color: "from-lime-500/15 to-lime-500/5 text-lime-700 dark:text-lime-400 border-lime-500/30", defaultPrice: 50 },
-  { name: "Karela", gujarati: "કારેલા", color: "from-amber-500/15 to-amber-500/5 text-amber-700 dark:text-amber-400 border-amber-500/30", defaultPrice: 60 },
-  { name: "Gunda", gujarati: "ગુંદા", color: "from-sky-500/15 to-sky-500/5 text-sky-700 dark:text-sky-400 border-sky-500/30", defaultPrice: 80 },
+  { name: "Kothimba", gujarati: "કોથમીર", color: "from-emerald-500/15 to-emerald-500/5 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
+  { name: "Guvar", gujarati: "ગુવાર", color: "from-green-500/15 to-green-500/5 text-green-700 dark:text-green-400 border-green-500/30" },
+  { name: "Bhinda", gujarati: "ભીંડા", color: "from-teal-500/15 to-teal-500/5 text-teal-700 dark:text-teal-400 border-teal-500/30" },
+  { name: "Marcha", gujarati: "મરચાં", color: "from-lime-500/15 to-lime-500/5 text-lime-700 dark:text-lime-400 border-lime-500/30" },
+  { name: "Karela", gujarati: "કારેલા", color: "from-amber-500/15 to-amber-500/5 text-amber-700 dark:text-amber-400 border-amber-500/30" },
+  { name: "Gunda", gujarati: "ગુંદા", color: "from-sky-500/15 to-sky-500/5 text-sky-700 dark:text-sky-400 border-sky-500/30" },
 ];
 
 export interface ItemsScrollListProps {
@@ -62,87 +62,50 @@ export function ItemsScrollList({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border/80 bg-gradient-to-r from-card via-card to-card p-2.5 shadow-xs",
+        "flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 bg-card/70 px-3 py-1.5 shadow-2xs backdrop-blur-xs",
         className
       )}
     >
-      <div className="mb-2 flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
-          <div className="grid h-6 w-6 place-items-center rounded-md bg-brand-soft text-primary">
-            <ShoppingBag className="h-3.5 w-3.5" />
-          </div>
-          <div>
-            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Quick Item Picker
-            </span>
-            <span className="ml-2 text-xs font-medium text-brand-navy dark:text-foreground">
-              {selectedOrderName ? (
-                <>
-                  Adding to: <span className="text-primary font-bold">{selectedOrderName}</span>
-                  {selectedOrderDocket ? ` (Docket ${selectedOrderDocket})` : ""}
-                </>
-              ) : (
-                "Tap item to add to customer order"
+      <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+        <div className="flex items-center gap-1.5 pr-1 text-xs font-semibold text-muted-foreground shrink-0">
+          <ShoppingBag className="h-3.5 w-3.5 text-primary" />
+          <span className="hidden sm:inline">Quick Add:</span>
+        </div>
+
+        <div
+          ref={scrollRef}
+          onScroll={checkScroll}
+          className="flex items-center gap-1.5 overflow-x-auto py-0.5 scrollbar-none"
+        >
+          {GOKUL_ITEMS.map((item) => (
+            <button
+              key={item.name}
+              type="button"
+              onClick={() => onSelectItem(item)}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-all hover:scale-[1.02] active:scale-95 shadow-2xs",
+                "bg-gradient-to-r",
+                item.color
               )}
-            </span>
-          </div>
-        </div>
-
-        {/* Scroll navigation arrows */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => scroll("left")}
-            disabled={!canScrollLeft}
-            aria-label="Scroll items left"
-            className={cn(
-              "grid h-6 w-6 place-items-center rounded-md border border-border bg-card text-muted-foreground transition-colors",
-              canScrollLeft ? "hover:bg-secondary hover:text-foreground" : "opacity-40 cursor-not-allowed"
-            )}
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-          </button>
-          <button
-            onClick={() => scroll("right")}
-            disabled={!canScrollRight}
-            aria-label="Scroll items right"
-            className={cn(
-              "grid h-6 w-6 place-items-center rounded-md border border-border bg-card text-muted-foreground transition-colors",
-              canScrollRight ? "hover:bg-secondary hover:text-foreground" : "opacity-40 cursor-not-allowed"
-            )}
-          >
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
+              title={`Add ${item.name} (${item.gujarati}) to ${selectedOrderName || "active order"}`}
+            >
+              <Plus className="h-3 w-3 stroke-[3] opacity-75" />
+              <span className="font-bold">{item.name}</span>
+              <span className="text-[11px] opacity-75 hidden sm:inline">({item.gujarati})</span>
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Scrollable container of items */}
-      <div
-        ref={scrollRef}
-        onScroll={checkScroll}
-        className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent scroll-smooth focus:outline-none"
-        style={{ scrollbarWidth: "thin" }}
-      >
-        {GOKUL_ITEMS.map((item) => (
-          <button
-            key={item.name}
-            type="button"
-            onClick={() => onSelectItem(item)}
-            className={cn(
-              "group relative flex shrink-0 items-center gap-2.5 rounded-lg border bg-gradient-to-b px-3 py-2 text-left transition-all hover:scale-[1.02] hover:shadow-xs active:scale-[0.98]",
-              item.color
-            )}
-            title={`Add ${item.name} (${item.gujarati}) to customer order`}
-          >
-            <div className="flex flex-col">
-              <span className="text-xs font-bold leading-tight">{item.name}</span>
-              <span className="text-[10px] opacity-80 font-medium">{item.gujarati}</span>
-            </div>
-            <div className="ml-1 grid h-5 w-5 place-items-center rounded-full bg-background/80 shadow-2xs group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-              <Plus className="h-3 w-3 stroke-[3]" />
-            </div>
-          </button>
-        ))}
-      </div>
+      {selectedOrderName && (
+        <div className="hidden md:flex items-center gap-1 text-[11px] text-muted-foreground shrink-0 pl-2 border-l border-border/60">
+          <span>Target:</span>
+          <span className="font-semibold text-foreground truncate max-w-[140px]">{selectedOrderName}</span>
+          {selectedOrderDocket && (
+            <span className="font-mono text-muted-foreground">#{selectedOrderDocket}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

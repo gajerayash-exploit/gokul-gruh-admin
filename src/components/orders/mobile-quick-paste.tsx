@@ -178,6 +178,15 @@ export function MobileQuickPaste({
     }));
   }
 
+  function handleUpdateItemPrice(itemName: string, price: number) {
+    setParsed((prev) => ({
+      ...prev,
+      items: prev.items.map((it) =>
+        it.itemName === itemName ? { ...it, unitPrice: Math.max(0, price) } : it
+      ),
+    }));
+  }
+
   async function handleSave(stayOpen = false) {
     if (!parsed.fullName.trim() && !parsed.phoneNumber.trim() && !parsed.address.trim()) {
       toast({
@@ -203,23 +212,31 @@ export function MobileQuickPaste({
         });
         finalOrder = updated.order;
 
-        // Add any newly parsed items
+        // Update or add newly parsed items with manual unit prices
         for (const it of parsed.items) {
-          const res = await api.addOrderItem(finalOrder.id, {
-            itemName: it.itemName,
-            quantity: it.quantity,
-            unitPrice: it.unitPrice || 0,
-          });
-          finalOrder = res.order;
+          const existingItem = finalOrder.items?.find(
+            (x) => x.itemName.trim().toLowerCase() === it.itemName.trim().toLowerCase()
+          );
+          if (existingItem) {
+            const res = await api.updateOrderItem(finalOrder.id, existingItem.id, {
+              quantity: it.quantity,
+              unitPrice: it.unitPrice || 0,
+            });
+            finalOrder = res.order;
+          } else {
+            const res = await api.addOrderItem(finalOrder.id, {
+              itemName: it.itemName,
+              quantity: it.quantity,
+              unitPrice: it.unitPrice || 0,
+            });
+            finalOrder = res.order;
+          }
         }
       } else {
-        // Create brand new order draft for the chosen orderDate (Today / Tomorrow / custom)
-        const draft = await api.createDraft(
-          orderDate,
-          parsed.items[0]?.itemName
-        );
+        // Create clean order draft for the chosen orderDate
+        const draft = await api.createDraft(orderDate);
 
-        // Update with all customer details
+        // Update with customer details
         const updated = await api.updateOrder(draft.order.id, {
           fullName: parsed.fullName,
           phoneNumber: parsed.phoneNumber,
@@ -229,17 +246,14 @@ export function MobileQuickPaste({
         });
         finalOrder = updated.order;
 
-        // If multiple items, add the remaining ones
-        if (parsed.items.length > 1) {
-          for (let i = 1; i < parsed.items.length; i++) {
-            const it = parsed.items[i];
-            const res = await api.addOrderItem(finalOrder.id, {
-              itemName: it.itemName,
-              quantity: it.quantity,
-              unitPrice: it.unitPrice || 0,
-            });
-            finalOrder = res.order;
-          }
+        // Add ALL parsed items with their EXACT unit rates and quantities
+        for (const it of parsed.items) {
+          const res = await api.addOrderItem(finalOrder.id, {
+            itemName: it.itemName,
+            quantity: it.quantity,
+            unitPrice: it.unitPrice || 0,
+          });
+          finalOrder = res.order;
         }
       }
 
@@ -531,10 +545,11 @@ export function MobileQuickPaste({
                   {parsed.items.map((it) => (
                     <div
                       key={it.itemName}
-                      className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5 text-xs"
+                      className="flex items-center justify-between rounded-lg bg-muted/40 px-2.5 py-1.5 text-xs gap-2"
                     >
-                      <span className="font-semibold text-foreground">{it.itemName}</span>
-                      <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground min-w-[60px]">{it.itemName}</span>
+                      <div className="flex items-center gap-2 flex-1 justify-end">
+                        {/* Quantity stepper */}
                         <div className="flex items-center rounded-md border border-border bg-card">
                           <button
                             type="button"
@@ -554,6 +569,28 @@ export function MobileQuickPaste({
                             +
                           </button>
                         </div>
+                        {/* Price input */}
+                        <div className="flex items-center gap-0.5">
+                          <span className="text-[10px] text-muted-foreground font-medium">₹</span>
+                          <input
+                            type="number"
+                            step="any"
+                            min={0}
+                            placeholder="Rate"
+                            value={it.unitPrice || ""}
+                            onChange={(e) => {
+                              const p = parseFloat(e.target.value);
+                              handleUpdateItemPrice(it.itemName, isNaN(p) ? 0 : p);
+                            }}
+                            className={cn(
+                              "w-16 rounded border px-1.5 py-0.5 text-right text-xs font-semibold tabular-nums outline-none transition-colors",
+                              !it.unitPrice
+                                ? "border-amber-400 bg-amber-50 dark:bg-amber-900/20 focus:border-primary placeholder:text-amber-500"
+                                : "border-border/50 bg-background focus:border-primary"
+                            )}
+                            title="Unit Rate (₹) — Enter price per quality"
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => handleRemoveItem(it.itemName)}
@@ -564,6 +601,11 @@ export function MobileQuickPaste({
                       </div>
                     </div>
                   ))}
+                  {parsed.items.some((it) => !it.unitPrice) && (
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 pt-0.5">
+                      ⚠ Enter price (₹) for highlighted items
+                    </p>
+                  )}
                 </div>
               )}
             </div>
